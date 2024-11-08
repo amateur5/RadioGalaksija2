@@ -1,14 +1,21 @@
-// ip.js
+const axios = require('axios');
+
 let connectedIps = []; // Ovdje čuvamo sve povezane IP adrese
 
 module.exports = (app) => {
     // Middleware za praćenje svih povezanih IP adresa
     app.use((req, res, next) => {
-        const ip = req.ip;  // Uzimamo IP adresu korisnika
-        if (!connectedIps.includes(ip)) {
-            connectedIps.push(ip); // Dodajemo novu IP adresu ako nije već tu
+        // Prvo proveravamo zaglavlje `x-forwarded-for`, a ako nije prisutno, koristimo `req.connection.remoteAddress`
+        const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        
+        // Uklanjamo IPv6 prefiks ako je prisutan (za lokalne testove, ::ffff:127.0.0.1)
+        const formattedIp = ip.includes(':') ? ip.split(':').pop() : ip;
+
+        // Dodajemo IP samo ako nije već u listi
+        if (!connectedIps.includes(formattedIp)) {
+            connectedIps.push(formattedIp);
         }
-        next(); // Nastavljamo sa sledećom funkcijom u lancu
+        next();
     });
 
     // Endpoint za dobijanje liste svih povezanih IP adresa
@@ -21,8 +28,8 @@ module.exports = (app) => {
 async function getLocation(ip) {
     try {
         // Koristimo API za geolokaciju IP adrese, na primer ipapi.co
-        const response = await fetch(`https://ipapi.co/${ip}/json/`);
-        const data = await response.json();
+        const response = await axios.get(`https://ipapi.co/${ip}/json/`);
+        const data = response.data;
         return data; // Vraćamo podatke o lokaciji (uključujući grad, zemlju itd.)
     } catch (error) {
         console.error('Greška prilikom dobijanja lokacije:', error);

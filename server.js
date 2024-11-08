@@ -5,18 +5,17 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
-const ipModule = require('./ip');
+const ipModule = require('./ip'); // Pretpostavljamo da ovaj modul vraća grad za IP adresu
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Poveži se sa bazom podataka
 connectDB();
 
 let guests = {}; // Objekat sa gostima i njihovim ID-ovima
 let assignedNumbers = new Set(); // Skup brojeva koji su već dodeljeni
-let connectedIps = []; // Ovdje čuvamo sve povezane IP adrese
+let connectedIps = []; // Lista povezanih IP adresa
 
 app.use(express.json());
 app.use(express.static(__dirname + '/public'));
@@ -52,16 +51,7 @@ app.post('/login', async (req, res) => {
     try {
         const user = await User.findOne({ username });
         if (user && await bcrypt.compare(password, user.password)) {
-            const role = user.role; // Preuzmi rolu korisnika iz baze
-            const socketId = req.headers['x-socket-id']; // Uzmemo socket ID iz header-a zahteva
-            
-            // Emitovanje samo prijavljenom korisniku na osnovu socket ID-a
-            const socket = io.sockets.sockets.get(socketId);
-            if (socket) {
-                socket.emit('userLoggedIn', { username, role });
-            }
-            
-            // Odgovor klijentu o statusu prijave
+            const role = user.role;
             res.send(role === 'admin' ? 'Logged in as admin' : 'Logged in as guest');
         } else {
             res.status(400).send('Invalid credentials');
@@ -76,7 +66,7 @@ app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/index.html');
 });
 
-// Generiši broj u opsegu 1111-9999 koji još nije dodeljen
+// Generiši jedinstveni broj za gosta
 function generateUniqueNumber() {
     let number;
     do {
@@ -86,44 +76,39 @@ function generateUniqueNumber() {
     return number;
 }
 
-// Endpoint za slanje liste IP adresa
+// Endpoint za listu IP adresa
 app.get('/ip-list', (req, res) => {
     res.json(connectedIps);
 });
 
-// Upravljanje događajima prilikom konekcije gostiju
-io.on('connection', (socket) => {
-    console.log('Novi gost je povezan sa socket ID:', socket.id);
-
+// Upravljanje konekcijama
+io.on('connection', async (socket) => {
     const guestId = socket.id;
     const ip = socket.request.connection.remoteAddress;
-    console.log(`Gost sa IP adresom ${ip} se povezao.`);
 
-    // Dodaj IP adresu u spisak povezanih
-    if (!connectedIps.includes(ip)) {
-        connectedIps.push(ip);
+    // Preuzmi grad na osnovu IP adrese
+    let location = await ipModule.getLocation(ip); // Pretpostavlja da ipModule vraća grad i državu
+    const city = location ? location.city : "Nepoznato mesto";
+
+    // Dodaj IP adresu u spisak povezanih ako već nije uključena
+    if (!connectedIps.some(entry => entry.ip === ip)) {
+        connectedIps.push({ ip, city });
     }
 
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
     guests[guestId] = nickname;
-    console.log(`${nickname} se povezao.`);
-    
+    console.log(`${nickname} iz ${city} se povezao.`);
+
     // Provera da li je gost banovan
-    if (banModule.isGuestBanned(guestId)) {
+    if (banmodule.isGuestBanned(guestId)) {
         socket.disconnect();
         return;
     }
 
     socket.broadcast.emit('newGuest', nickname);
     io.emit('updateGuestList', Object.values(guests));
-
-    // Prijavljivanje gosta
-    socket.on('userLoggedIn', (username) => {
-        guests[guestId] = username;
-        io.emit('updateGuestList', Object.values(guests));
-    });
 
     // Prijem poruka u četu
     socket.on('chatMessage', (msgData) => {
@@ -139,7 +124,7 @@ io.on('connection', (socket) => {
         io.emit('chatMessage', messageToSend);
     });
 
-    // Banovanje gosta samo od strane admina "Radio Galaksija"
+    // Banovanje gosta (samo od strane admina)
     socket.on("toggleBanUser", (targetGuestId) => {
         if (guests[guestId] === "Radio Galaksija") {
             banmodule.isGuestBanned(targetGuestId) ? 
@@ -150,14 +135,14 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Odlazak gosta sa četa
+    // Kada gost napusti čet
     socket.on('disconnect', () => {
         console.log(`${guests[guestId]} se odjavio.`);
         assignedNumbers.delete(parseInt(guests[guestId].split('-')[1], 10));
         delete guests[guestId];
 
-        // Uklanjanje IP adrese gosta iz spiska kada se odjavi
-        connectedIps = connectedIps.filter((userIp) => userIp !== ip);
+        // Ukloni IP adresu gosta kada se odjavi
+        connectedIps = connectedIps.filter((entry) => entry.ip !== ip);
 
         io.emit('updateGuestList', Object.values(guests));
     });

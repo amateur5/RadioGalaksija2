@@ -142,9 +142,9 @@ io.on('connection', (socket) => {
     // Banovanje gosta samo od strane admina "Radio Galaksija"
     socket.on("toggleBanUser", (targetGuestId) => {
         if (guests[guestId] === "Radio Galaksija") {
-            banModule.isGuestBanned(targetGuestId) ? 
-                banModule.unbanGuest(targetGuestId) : 
-                banModule.banGuest(targetGuestId);
+            banmodule.isGuestBanned(targetGuestId) ? 
+                banmodule.unbanGuest(targetGuestId) : 
+                banmodule.banGuest(targetGuestId);
             io.sockets.sockets.get(targetGuestId)?.disconnect();
             io.emit('updateGuestList', Object.values(guests));
         }

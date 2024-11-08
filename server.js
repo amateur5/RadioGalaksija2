@@ -5,14 +5,14 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
-const ipModule = require('./ip'); // novi ip modul koji smo ažurirali
+const ipModule = require('./ip'); // Novi IP modul koji smo ažurirali
 const requestIp = require('request-ip'); // Dodaj ovo za uzimanje IP adresa
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-connectDB();
+connectDB(); // Povezivanje s bazom podataka
 
 // Pokrećemo `ipModule` da koristi middleware za beleženje IP adresa
 ipModule(app);
@@ -27,19 +27,19 @@ app.use(express.static(__dirname + '/public'));
 function generateUniqueNumber() {
     let number;
     do {
-        number = Math.floor(Math.random() * 8889) + 1111;
-    } while (assignedNumbers.has(number));
-    assignedNumbers.add(number);
+        number = Math.floor(Math.random() * 8889) + 1111; // Brojevi između 1111 i 9999
+    } while (assignedNumbers.has(number)); // Ako broj već postoji, generišemo novi
+    assignedNumbers.add(number); // Dodajemo broj u skup kako bismo izbegli duplikate
     return number;
 }
 
 // Upravljanje konekcijama
 io.on('connection', async (socket) => {
     // Dobavljanje IP adrese korisnika pomoću request-ip
-    const ip = requestIp.getClientIp(socket.request); // Koristi request-ip
+    const ip = requestIp.getClientIp(socket.request); // Koristi request-ip za preuzimanje IP adrese
 
     // Dobavljanje podataka o lokaciji na osnovu IP adrese
-    let location = await ipModule.getLocation(ip);
+    let location = await ipModule.getLocation(ip); // Pozivamo `getLocation` iz ipModule
     const city = location ? location.city : "Nepoznato mesto";
     const country = location ? location.country : "Nepoznata zemlja";
 
@@ -66,15 +66,15 @@ io.on('connection', async (socket) => {
             nickname: guests[socket.id].nickname,
             time: time
         };
-        io.emit('chatMessage', messageToSend);
+        io.emit('chatMessage', messageToSend); // Šaljemo poruku svim korisnicima
     });
 
     // Kada gost napusti čet
     socket.on('disconnect', () => {
         console.log(`${guests[socket.id].nickname} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
-        delete guests[socket.id];
-        io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10)); // Uklanjamo dodeljeni broj
+        delete guests[socket.id]; // Brišemo gosta iz objekta
+        io.emit('updateGuestList', Object.values(guests).map(g => g.nickname)); // Ažuriramo listu gostiju
     });
 });
 

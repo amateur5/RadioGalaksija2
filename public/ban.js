@@ -21,45 +21,49 @@ function isAdmin() {
 }
 
 // Funkcija za slanje login zahteva sa socket ID-om u header-u
-function login(username, password) {
-    fetch('/login', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-socket-id': socketId // Postavi socket ID kao header
-        },
-        body: JSON.stringify({ username, password })
-    })
-    .then(response => response.text())
-    .then(responseText => {
+async function login(username, password) {
+    try {
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-socket-id': socketId // Postavi socket ID kao header
+            },
+            body: JSON.stringify({ username, password })
+        });
+
+        const responseText = await response.text();
         console.log(responseText); // Prikazuje status prijave
+
         if (isAdmin()) {
             fetchIPList(); // Poziva funkciju koja učitava listu IP adresa ako je korisnik admin
         }
-    })
-    .catch(error => console.error('Greška prilikom logovanja:', error));
+    } catch (error) {
+        console.error('Greška prilikom logovanja:', error);
+    }
 }
 
 // Funkcija za dobijanje liste IP adresa, samo za admina
-function fetchIPList() {
-    fetch('/ip-list')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Greška sa serverom, pokušajte ponovo.');
-            }
-            return response.json();
-        })
-        .then(data => {
-            const ipListContainer = document.getElementById('ip-list-container');
-            ipListContainer.innerHTML = ''; // Očisti prethodni sadržaj
-            data.forEach(guest => {
-                const userDiv = document.createElement('div');
-                userDiv.innerHTML = `${guest.guestIp} <button id="banButton_${guest.guestId}">Ban</button>`;
-                ipListContainer.appendChild(userDiv);
-                setupBanButton(guest.guestId); // Dodaje funkcionalnost za dugme za ban
-            });
-        })
-        .catch(error => console.error('Greška prilikom preuzimanja IP adresa:', error));
+async function fetchIPList() {
+    try {
+        const response = await fetch('/ip-list');
+        if (!response.ok) {
+            throw new Error('Greška sa serverom, pokušajte ponovo.');
+        }
+
+        const data = await response.json();
+        const ipListContainer = document.getElementById('ip-list-container');
+        ipListContainer.innerHTML = ''; // Očisti prethodni sadržaj
+
+        data.forEach(guest => {
+            const userDiv = document.createElement('div');
+            userDiv.innerHTML = `${guest.guestIp} <button id="banButton_${guest.guestId}">Ban</button>`;
+            ipListContainer.appendChild(userDiv);
+            setupBanButton(guest.guestId); // Dodaje funkcionalnost za dugme za ban
+        });
+    } catch (error) {
+        console.error('Greška prilikom preuzimanja IP adresa:', error);
+    }
 }
 
 // Funkcija za povezivanje ban dugmeta
@@ -71,20 +75,25 @@ function setupBanButton(guestId) {
         };
     }
 }
+
+// Povezivanje sa serverom i provera IP adrese korisnika
 io.on('connection', async (socket) => {
     const guestId = socket.id;
     const ip = socket.request.connection.remoteAddress;
 
-    // Proveri da li `getLocation` postoji i pozovi je
-    let location;
-    if (ipModule && typeof ipModule.getLocation === 'function') {
-        location = await ipModule.getLocation(ip);
-    } else {
-        console.error('ipModule.getLocation funkcija nije definisana');
+    try {
+        // Proveri da li `getLocation` postoji i pozovi je
+        let location = null;
+        if (ipModule && typeof ipModule.getLocation === 'function') {
+            location = await ipModule.getLocation(ip);
+        } else {
+            console.error('ipModule.getLocation funkcija nije definisana');
+        }
+
+        const city = location ? location.city : "Nepoznato mesto";
+
+        console.log(`Korisnik sa IP adresom ${ip} dolazi iz grada: ${city}`);
+    } catch (error) {
+        console.error('Greška prilikom preuzimanja IP adrese:', error);
     }
-
-    const city = location ? location.city : "Nepoznato mesto";
-
-    // Ostatak koda...
 });
-

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "ffmpeg.js",
   "engines": {
-    "node": "20.x"  // Ovdje postavite verziju Node.js koju želite koristiti
+    "node": "20.x"  
   },
   "dependencies": {
     "abbrev": "^1.1.1",

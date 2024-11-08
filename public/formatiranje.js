@@ -2,7 +2,7 @@ const socket = io();
 
 let isBold = false;
 let isItalic = false;
-let currentColor = '#FFFFFF';
+let currentColor = '#808080';  // Podrazumevana boja je siva (#808080)
 
 // Provera da li postoji 'boldBtn' i dodavanje event listenera
 const boldBtn = document.getElementById('boldBtn');
@@ -51,7 +51,7 @@ function updateInputStyle() {
 
 // Funkcija za ažuriranje boje imena gosta
 function updateGuestColor(color) {
-    const guestName = document.getElementById('djNickname');  // Primer za 'djNickname'
+    const guestName = document.getElementById('guestNickname');  // Primer za 'guestNickname'
     if (guestName) {
         guestName.style.color = color;
         socket.emit('guestColorChange', { nickname: guestName.textContent, color: color });
@@ -80,7 +80,7 @@ if (chatInput) {
                 bold: isBold,
                 italic: isItalic,
                 color: currentColor,
-                nickname: "Admin"
+                nickname: "Guest"  // Preimenovano u 'Guest'
             });
             this.value = ''; // Isprazni polje za unos
         }
@@ -101,27 +101,28 @@ socket.on('chatMessage', function(data) {
     }
 });
 
-// Dodavanje novih gostiju na listu
+// Dodavanje novih gostiju na listu sa početnom sivom bojom
 socket.on('newGuest', function (nickname) {
     const guestList = document.getElementById('guestList');
     if (guestList) {
         const newGuest = document.createElement('div');
         newGuest.className = 'guest';
         newGuest.textContent = nickname;
+        newGuest.style.color = '#808080';  // Početna boja je siva
         guestList.appendChild(newGuest);
     }
 });
 
 // Ažuriranje liste gostiju
-socket.on('updateGuestList', function (users) {
+socket.on('updateGuestList', function (guests) {
     const guestList = document.getElementById('guestList');
     if (guestList) {
         guestList.innerHTML = ''; // Očisti trenutnu listu
-        users.forEach(user => {
+        guests.forEach(guest => {
             const newGuest = document.createElement('div');
             newGuest.className = 'guest';
-            newGuest.textContent = user.nickname;
-            newGuest.style.color = user.color; // Primeni boju ako je definisana
+            newGuest.textContent = guest.nickname;
+            newGuest.style.color = guest.color || '#808080'; // Ako postoji boja, primeni je, inače podrazumevana boja
             guestList.appendChild(newGuest);
         });
     }

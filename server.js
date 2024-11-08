@@ -85,11 +85,11 @@ io.on('connection', async (socket) => {
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
-    guests[socket.id] = { nickname, ip, city, country };
+    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF" }; // Dodajemo početnu boju
     console.log(`${nickname} iz ${city}, ${country} se povezao.`);
 
     socket.broadcast.emit('newGuest', { nickname, city });
-    io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
+    io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
 
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
@@ -109,11 +109,17 @@ io.on('connection', async (socket) => {
         io.emit('chatMessage', messageToSend);
     });
 
+    // Kada gost promeni boju
+    socket.on('changeColor', (color) => {
+        guests[socket.id].color = color; // Ažuriraj boju nickname-a
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color }))); // Emituj ažuriranu listu gostiju
+    });
+
     socket.on('disconnect', () => {
         console.log(`${guests[socket.id].nickname} se odjavio.`);
         assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
         delete guests[socket.id];
-        io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
     });
 });
 

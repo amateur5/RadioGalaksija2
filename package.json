@@ -2,6 +2,9 @@
   "name": "galaksija6",
   "version": "1.0.0",
   "main": "ffmpeg.js",
+  "engines": {
+    "node": "20.x"  // Ovdje postavite verziju Node.js koju želite koristiti
+  },
   "dependencies": {
     "abbrev": "^1.1.1",
     "accepts": "^1.3.8",

@@ -33,6 +33,11 @@ function generateUniqueNumber() {
     return number;
 }
 
+// Middleware za autentifikaciju admina
+function checkAdmin(username) {
+    return username === 'Radio Galaksija'; // Provera da li je korisnik admin
+}
+
 // Upravljanje konekcijama
 io.on('connection', async (socket) => {
     // Dobavljanje IP adrese korisnika pomoću request-ip
@@ -66,6 +71,12 @@ io.on('connection', async (socket) => {
             nickname: guests[socket.id].nickname,
             time: time
         };
+
+        // Proveravamo da li je admin poslao poruku
+        if (checkAdmin(guests[socket.id].nickname)) {
+            messageToSend.isAdmin = true;  // Dodajemo oznaku za admina
+        }
+
         io.emit('chatMessage', messageToSend); // Šaljemo poruku svim korisnicima
     });
 

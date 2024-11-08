@@ -1,0 +1,156 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: black;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+#authContainer {
+    background-color: #333;
+    border-radius: 10px;
+    padding: 20px;
+    width: 250px;
+    box-shadow: 0px 4px 8px rgba(255, 255, 255, 0.3);
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 20px; /* Razmak od ivice */
+}
+
+#authContainer form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#authContainer input[type="text"],
+#authContainer input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin: 8px 0;
+    border: 1px solid #555;
+    border-radius: 5px;
+    background-color: #222;
+    color: white;
+    font-size: 16px;
+}
+
+#authContainer input[type="text"]::placeholder,
+#authContainer input[type="password"]::placeholder {
+    color: #aaa;
+}
+
+#authContainer button[type="submit"] {
+    width: 100%;
+    padding: 10px;
+    background-color: #333;
+    color: #00ffff; /* Bela neon boja za dugme */
+    border: 1px solid #00ffff; /* Neon ivica */
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s ease, background-color 0.3s ease, border-color 0.3s ease;
+    margin-top: 10px;
+    box-shadow: 0px 0px 8px rgba(0, 255, 255, 0.7); /* Neon senka */
+}
+
+#authContainer button[type="submit"]:hover {
+    color: #333;
+    background-color: #00ffff; /* Obrnuta neon boja na hover */
+    border-color: #00ffff;
+}
+
+#chatContainer {
+    width: 900px;
+    height: 600px;
+    margin: auto;
+    border: 2px solid white;
+    background-color: black;
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#toolbar {
+    width: 100%;
+    height: 50px;
+    background-color: black;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    border-bottom: 2px solid white;
+    box-shadow: 0 4px 10px rgba(255, 255, 255, 0.5);
+}
+
+.toolbarBtn {
+    padding: 10px 20px;
+    background-color: black;
+    border: 2px solid white;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.toolbarBtn:hover {
+    background-color: #666;
+}
+
+#messageArea {
+    position: absolute;
+    top: 95px;
+    left: 5px;
+    right: 185px;
+    bottom: 0px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.message {
+    margin-bottom: 10px;
+}
+
+#chatInput {
+    position: absolute;
+    top: 60px;
+    left: 120px;
+    width: 500px;
+    height: 20px;
+    padding: 5px;
+    border-radius: 5px;
+    border: 2px solid white;
+    resize: none;
+    font-size: 17px;
+    background-color: black;
+    color: white;
+    overflow: hidden;
+}
+
+#guestList {
+    position: absolute;
+    right: 0;
+    top: 60px;
+    width: 180px;
+    height: calc(100% - 70px);
+    border-left: 2px solid white;
+    background-color: black;
+    color: white;
+    border-bottom: 2px solid white;
+    overflow-y: auto;
+}
+
+.guest {
+    padding: 5px;
+    border-bottom: 1px solid white;
+    cursor: pointer;
+}

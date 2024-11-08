@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Galaksija</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="stylesheet" href="styles.css"> <!-- Povezivanje CSS datoteke -->
+    <link rel="stylesheet" href="dj.css"> <!-- Povezivanje dj.css sa index.html -->
+</head>
+<body>
+
+<div id="authContainer">
+    <!-- Forma za registraciju -->
+    <form id="registerForm">
+        <input type="text" id="registerUsername" placeholder="Ime gosta" required>
+        <input type="password" id="registerPassword" placeholder="Lozinka" required>
+        <button type="submit">Registracija</button>
+    </form>
+    
+    <!-- Forma za prijavu -->
+    <form id="loginForm">
+        <input type="text" id="loginUsername" placeholder="Ime gosta" required>
+        <input type="password" id="loginPassword" placeholder="Lozinka" required>
+        <button type="submit">Prijava</button>
+    </form>
+</div>
+
+<div id="chatContainer">
+    <div id="toolbar">
+        <button class="toolbarBtn" id="boldBtn">Bold</button>
+        <button id="openModal" class="toolbarBtn">D</button>
+        <button class="toolbarBtn" id="italicBtn">Italic</button>
+        <button class="toolbarBtn" id="banned">A</button> <!-- Dugme A sa ID 'banned' -->
+        <button class="toolbarBtn" id="colorBtn">Color</button>
+        <button id="openModal" class="toolbarBtn">P</button>
+        <button class="toolbarBtn" id="smilesBtn">Smiles</button>
+        <input type="color" id="colorPicker" style="display: none;"> <!-- Skriveni color picker -->
+    </div>
+
+    <div id="messageArea"></div>
+
+    <div id="messageInput">
+        <textarea id="chatInput" rows="1" placeholder="Type your message..."></textarea>
+    </div>
+
+    <div id="guestList">
+        <div class="guest" id="djNickname">Radio Galaksija</div>
+        <!-- Ostali gosti će se ovde dodavati -->
+    </div>
+</div>
+
+<div id="ip-list-container"></div> 
+
+<script src="formatiranje.js"></script> <!-- Povezivanje JavaScript datoteke -->
+<script src="regist.js"></script>
+<script src="virtual.js"></script>
+<script src="smile.js"></script> <!-- Povezivanje JavaScript datoteke za smilove -->
+<iframe width="50" height="50" style="position: absolute; top: 0; right: 0;" src="https://www.youtube.com/embed/live_stream?channel=UC-6Cxxjt2zQaqK-FPiEr9Sw" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+<a href="https://radioromanigalaksija.weebly.com/" target="_blank" style="position: absolute; bottom: 0; left: 0; background: rgba(255, 255, 255, 0.8); padding: 5px; text-decoration: none; color: black;">MUZIKA</a>
+<iframe src="track.js" style="position: fixed; bottom: 0; right: 0; width: 10px; height: 10px; border: none;"></iframe>
+
+</body>
+</html>

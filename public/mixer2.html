@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Mixer</title>
+    
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0; /* Uklanja marginu oko body elementa */
+            padding: 0; /* Uklanja padding oko body elementa */
+            position: relative; /* Postavlja poziciju tela na relativnu da bi se children elementi mogli pozicionirati apsolutno */
+        }
+
+        #mixer {
+            position: absolute; /* Apsolutna pozicija */
+            top: 100; /* 0 pixela od vrha */
+            right: 0; /* 0 pixela od desne strane */
+            background-color: white; /* Postavi pozadinsku boju, promeni po potrebi */
+            padding: 10px; /* Dodaj padding, opcionalno */
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5); /* Dodaj senku, opcionalno */
+        }
+    </style>
+</head>
+<body>
+    <div id="toggleMixer">&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;&#9679;</div>
+    <input type="password" id="mixerPassword" placeholder="Unesi lozinku" style="display:none;">
+    <button id="openMixer" style="display:none;">Otvori Mixer</button>
+    
+    <div id="mixer" style="display: none;"> <!-- Dodaj 'display: none;' da se sakrije dok se ne otvori -->
+        <h2>Audio Mixer</h2>
+        <input type="text" id="songUrl" placeholder="URL pesme">
+        <input type="text" id="songName" placeholder="Naziv pesme">
+        <button id="addSong">Dodaj pesmu</button>
+        <input type="file" id="fileInput" multiple>
+        <ul id="songList"></ul>
+        <audio id="audioPlayer" controls style="display: none;"></audio>
+    </div>
+
+    <script>
+        const socket = io();
+        const audioPlayer = document.getElementById('audioPlayer');
+        const songList = document.getElementById('songList');
+        const addSongButton = document.getElementById('addSong');
+        const songUrlInput = document.getElementById('songUrl');
+        const songNameInput = document.getElementById('songName');
+        const fileInput = document.getElementById('fileInput');
+        const toggleMixer = document.getElementById('toggleMixer');
+        const mixer = document.getElementById('mixer');
+        const mixerPassword = document.getElementById('mixerPassword');
+        const openMixerButton = document.getElementById('openMixer');
+
+        let songs = [];
+        let currentSongIndex = 0;
+
+        toggleMixer.addEventListener('click', () => {
+            mixerPassword.style.display = 'block';
+            openMixerButton.style.display = 'block';
+        });
+
+        openMixerButton.addEventListener('click', () => {
+            const password = mixerPassword.value.trim();
+            const correctPassword = 'mixer2024';
+
+            if (password === correctPassword) {
+                mixer.style.display = 'block';
+                mixerPassword.style.display = 'none';
+                openMixerButton.style.display = 'none';
+            } else {
+                alert('Pogrešna lozinka!');
+            }
+        });
+
+        function addSong(url, name) {
+            songs.push(url);
+            const li = document.createElement('li');
+            li.textContent = name || url;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Obriši';
+            deleteButton.className = 'deleteButton';
+            deleteButton.onclick = () => {
+                const index = songs.indexOf(url);
+                if (index > -1) {
+                    songs.splice(index, 1);
+                    songList.removeChild(li);
+                }
+            };
+
+            li.onclick = () => {
+                playSong(songs.indexOf(url));
+            };
+
+            li.appendChild(deleteButton);
+            songList.appendChild(li);
+            if (songs.length === 1) {
+                playSong(0);
+            }
+
+            li.draggable = true;
+            li.ondragstart = (e) => {
+                e.dataTransfer.setData("text/plain", songs.indexOf(url));
+            };
+
+            li.ondragover = (e) => {
+                e.preventDefault();
+            };
+
+            li.ondrop = (e) => {
+                e.preventDefault();
+                const draggedIndex = e.dataTransfer.getData("text/plain");
+                const targetIndex = songs.indexOf(url);
+
+                const temp = songs[draggedIndex];
+                songs[draggedIndex] = songs[targetIndex];
+                songs[targetIndex] = temp;
+
+                updateSongList();
+            };
+        }
+
+        addSongButton.addEventListener('click', () => {
+            const url = songUrlInput.value.trim();
+            const name = songNameInput.value.trim();
+            if (url) {
+                addSong(url, name);
+                songUrlInput.value = '';
+                songNameInput.value = '';
+            } else {
+                console.error('URL pesme nije unet ili je prazan.');
+            }
+        });
+
+        fileInput.addEventListener('change', (event) => {
+            const files = event.target.files;
+            for (let i = 0; i < files.length; i++) {
+                const url = URL.createObjectURL(files[i]);
+                addSong(url, files[i].name);
+            }
+            fileInput.value = '';
+        });
+
+        function playSong(index) {
+            if (index < songs.length) {
+                audioPlayer.src = songs[index];
+                audioPlayer.play();
+                audioPlayer.style.display = 'block';
+                currentSongIndex = index;
+
+                socket.emit('play_song', songs[index]);
+            }
+        }
+
+        socket.on('play_song', (songUrl) => {
+            audioPlayer.src = songUrl;
+            audioPlayer.play();
+            audioPlayer.style.display = 'block';
+        });
+
+        audioPlayer.addEventListener('ended', () => {
+            songList.removeChild(songList.children[currentSongIndex]);
+            currentSongIndex++;
+            if (currentSongIndex < songs.length) {
+                playSong(currentSongIndex);
+            } else {
+                currentSongIndex = 0;
+                audioPlayer.style.display = 'none';
+            }
+            songs.splice(currentSongIndex - 1, 1);
+        });
+
+        dragElement(document.getElementById("mixer"));
+
+        function dragElement(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            elmnt.onmousedown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+    </script>
+</body>
+</html>

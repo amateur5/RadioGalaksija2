@@ -7,11 +7,13 @@ console.log("MongoDB URI:", uri); // Privremeno dodajemo log za proveru URI-ja
 
 const connectDB = async () => {
     try {
-        await mongoose.connect(uri, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true
-        });
+        await mongoose.connect(uri); // Ove opcije više nisu potrebne
         console.log("Povezan sa bazom podataka!");
+    } catch (error) {
+        console.error("Greška prilikom povezivanja sa bazom:", error);
+    }
+};
+
     } catch (error) {
         console.error("Greška prilikom povezivanja sa bazom:", error.message);
         process.exit(1); // Prekida aplikaciju ako ne može da se poveže

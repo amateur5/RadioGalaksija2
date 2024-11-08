@@ -5,7 +5,7 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
-const ipModule = require('./ip'); // Modul koji vraća grad za IP adresu
+const ipModule = require('./ip'); // novi ip modul koji smo ažurirali
 
 const app = express();
 const server = http.createServer(app);
@@ -13,14 +13,16 @@ const io = socketIo(server);
 
 connectDB();
 
+// Pokrećemo `ipModule` da koristi middleware za beleženje IP adresa
+ipModule(app);
+
 let guests = {}; // Objekat sa gostima i njihovim IP adresama i gradovima
 let assignedNumbers = new Set(); // Skup brojeva koji su već dodeljeni
-let connectedIps = []; // Lista povezanih IP adresa
 
 app.use(express.json());
 app.use(express.static(__dirname + '/public'));
 
-// Generiši jedinstveni broj za gosta
+// Funkcija za generisanje jedinstvenog broja za gosta
 function generateUniqueNumber() {
     let number;
     do {
@@ -32,25 +34,23 @@ function generateUniqueNumber() {
 
 // Upravljanje konekcijama
 io.on('connection', async (socket) => {
+    // Dobavljanje IP adrese korisnika
     const ip = socket.request.connection.remoteAddress;
 
-    // Preuzmi grad na osnovu IP adrese
-    let location = await ipModule.getLocation(ip); // Pretpostavlja da ipModule vraća grad i državu
+    // Dobavljanje podataka o lokaciji na osnovu IP adrese
+    let location = await ipModule.getLocation(ip);
     const city = location ? location.city : "Nepoznato mesto";
+    const country = location ? location.country : "Nepoznata zemlja";
 
+    // Generiši jedinstveni nadimak za gosta
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
     // Sačuvaj informacije o korisniku
-    guests[socket.id] = { nickname, ip, city };
-    console.log(`${nickname} iz ${city} se povezao.`);
+    guests[socket.id] = { nickname, ip, city, country };
+    console.log(`${nickname} iz ${city}, ${country} se povezao.`);
 
-    // Provera da li je gost banovan
-    if (banmodule.isGuestBanned(socket.id)) {
-        socket.disconnect();
-        return;
-    }
-
+    // Emitovanje liste gostiju
     socket.broadcast.emit('newGuest', { nickname, city });
     io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
 
@@ -68,26 +68,11 @@ io.on('connection', async (socket) => {
         io.emit('chatMessage', messageToSend);
     });
 
-    // Banovanje gosta (samo od strane admina)
-    socket.on("toggleBanUser", (targetGuestId) => {
-        if (guests[socket.id].nickname === "Radio Galaksija") {
-            banmodule.isGuestBanned(targetGuestId) ? 
-                banmodule.unbanGuest(targetGuestId) : 
-                banmodule.banGuest(targetGuestId);
-            io.sockets.sockets.get(targetGuestId)?.disconnect();
-            io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
-        }
-    });
-
     // Kada gost napusti čet
     socket.on('disconnect', () => {
         console.log(`${guests[socket.id].nickname} se odjavio.`);
         assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
         delete guests[socket.id];
-
-        // Ukloni IP adresu gosta kada se odjavi
-        connectedIps = connectedIps.filter((entry) => entry.ip !== ip);
-
         io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
     });
 });

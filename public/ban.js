@@ -71,3 +71,20 @@ function setupBanButton(guestId) {
         };
     }
 }
+io.on('connection', async (socket) => {
+    const guestId = socket.id;
+    const ip = socket.request.connection.remoteAddress;
+
+    // Proveri da li `getLocation` postoji i pozovi je
+    let location;
+    if (ipModule && typeof ipModule.getLocation === 'function') {
+        location = await ipModule.getLocation(ip);
+    } else {
+        console.error('ipModule.getLocation funkcija nije definisana');
+    }
+
+    const city = location ? location.city : "Nepoznato mesto";
+
+    // Ostatak koda...
+});
+

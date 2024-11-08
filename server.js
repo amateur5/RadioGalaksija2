@@ -4,7 +4,7 @@ const socketIo = require('socket.io');
 const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
-const banModule = require("./banModule");
+const banmodule = require("./banmodule");
 const ipModule = require('./ip');
 
 const app = express();

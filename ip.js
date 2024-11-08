@@ -2,26 +2,32 @@
 let connectedIps = []; // Ovdje čuvamo sve povezane IP adrese
 
 module.exports = (app) => {
+    // Middleware za praćenje svih povezanih IP adresa
     app.use((req, res, next) => {
-        const ip = req.ip;
+        const ip = req.ip;  // Uzimamo IP adresu korisnika
         if (!connectedIps.includes(ip)) {
             connectedIps.push(ip); // Dodajemo novu IP adresu ako nije već tu
         }
-        next();
+        next(); // Nastavljamo sa sledećom funkcijom u lancu
     });
 
+    // Endpoint za dobijanje liste svih povezanih IP adresa
     app.get('/ip-list', (req, res) => {
-        // Šaljemo sve IP adrese na front-end
-        res.json(connectedIps);
+        res.json(connectedIps);  // Šaljemo listu svih povezanih IP adresa na front-end
     });
 };
-// Primer ip.js fajla sa getLocation funkcijom
+
+// Funkcija za dobijanje lokacije na osnovu IP adrese
 async function getLocation(ip) {
-    // Ovaj kod koristi neki servis za dobijanje geografske lokacije po IP adresi.
-    // Na primer, API poput ipapi.co, ipinfo.io, ili sličan.
-    const response = await fetch(`https://ipapi.co/${ip}/json/`);
-    const data = await response.json();
-    return data; // Ovo bi trebalo da uključi `city` i druge podatke
+    try {
+        // Koristimo API za geolokaciju IP adrese, na primer ipapi.co
+        const response = await fetch(`https://ipapi.co/${ip}/json/`);
+        const data = await response.json();
+        return data; // Vraćamo podatke o lokaciji (uključujući grad, zemlju itd.)
+    } catch (error) {
+        console.error('Greška prilikom dobijanja lokacije:', error);
+        return null; // Vraćamo null ako dođe do greške
+    }
 }
 
-module.exports = { getLocation };
+module.exports.getLocation = getLocation;  // Exportujemo funkciju za geolokaciju

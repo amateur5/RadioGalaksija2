@@ -72,7 +72,7 @@ app.post('/login', async (req, res) => {
         return res.status(400).send('Pogrešna lozinka');
     }
 
-    res.json({ success: true, role: user.role, username: user.username });
+    res.json({ success: true, role: user.role });
 });
 
 // Upravljanje konekcijama
@@ -85,22 +85,11 @@ io.on('connection', async (socket) => {
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
-    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF", loggedIn: false }; // Dodajemo početnu boju i flag za login
+    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF" }; // Dodajemo početnu boju
     console.log(`${nickname} iz ${city}, ${country} se povezao.`);
 
     socket.broadcast.emit('newGuest', { nickname, city });
     io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
-
-    socket.on('login', (username) => {
-        // Kada se korisnik uloguje, ažuriramo njegov nickname u listi
-        if (guests[socket.id]) {
-            guests[socket.id].nickname = username;
-            guests[socket.id].loggedIn = true;
-            console.log(`${username} se ulogovao.`);
-        }
-
-        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
-    });
 
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();

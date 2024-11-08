@@ -2,7 +2,7 @@ const socket = io();
 
 let isBold = false;
 let isItalic = false;
-let currentColor = '#808080';  // Podrazumevana boja je siva (#808080)
+let currentColor = '#FFFFFF';  // Početna boja za poruke (bela)
 
 // Provera da li postoji 'boldBtn' i dodavanje event listenera
 const boldBtn = document.getElementById('boldBtn');
@@ -34,8 +34,8 @@ if (colorBtn) {
 if (colorPicker) {
     colorPicker.addEventListener('input', function() {
         currentColor = this.value;
+        updateInputStyle();  // Ažurira stil teksta za poruke
         updateGuestColor(currentColor);  // Menja boju za gosta
-        updateInputStyle();  // Ažurira stil teksta
     });
 }
 
@@ -49,7 +49,7 @@ function updateInputStyle() {
     }
 }
 
-// Funkcija za ažuriranje boje imena gosta
+// Funkcija za ažuriranje boje imena gosta (nik)
 function updateGuestColor(color) {
     const guestName = document.getElementById('guestNickname');  // Primer za 'guestNickname'
     if (guestName) {
@@ -79,8 +79,8 @@ if (chatInput) {
                 text: message,
                 bold: isBold,
                 italic: isItalic,
-                color: currentColor,
-                nickname: "Guest"  // Preimenovano u 'Guest'
+                color: currentColor,  // Ova boja ide u poruku
+                nickname: "Guest"  // Nik gost
             });
             this.value = ''; // Isprazni polje za unos
         }
@@ -95,7 +95,7 @@ socket.on('chatMessage', function(data) {
         newMessage.classList.add('message');
         newMessage.style.fontWeight = data.bold ? 'bold' : 'normal';
         newMessage.style.fontStyle = data.italic ? 'italic' : 'normal';
-        newMessage.style.color = data.color;
+        newMessage.style.color = data.color;  // Boja poruke, zavisno od odabrane
         newMessage.innerHTML = `<strong>${data.nickname}:</strong> ${data.text}`;
         messageArea.prepend(newMessage);
     }
@@ -108,7 +108,7 @@ socket.on('newGuest', function (nickname) {
         const newGuest = document.createElement('div');
         newGuest.className = 'guest';
         newGuest.textContent = nickname;
-        newGuest.style.color = '#808080';  // Početna boja je siva
+        newGuest.style.color = '#808080';  // Početna boja nikova (siva)
         guestList.appendChild(newGuest);
     }
 });
@@ -122,7 +122,7 @@ socket.on('updateGuestList', function (guests) {
             const newGuest = document.createElement('div');
             newGuest.className = 'guest';
             newGuest.textContent = guest.nickname;
-            newGuest.style.color = guest.color || '#808080'; // Ako postoji boja, primeni je, inače podrazumevana boja
+            newGuest.style.color = guest.color || '#808080'; // Početna boja je siva, ili odabrana boja
             guestList.appendChild(newGuest);
         });
     }

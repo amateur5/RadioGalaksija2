@@ -5,20 +5,18 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
-const ipModule = require('./ip'); // Novi IP modul koji smo ažurirali
-const requestIp = require('request-ip'); // Dodaj ovo za uzimanje IP adresa
+const ipModule = require('./ip');
+const requestIp = require('request-ip');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-connectDB(); // Povezivanje s bazom podataka
+connectDB(); // Povezivanje sa bazom podataka
+ipModule(app); // Middleware za beleženje IP adresa
 
-// Pokrećemo `ipModule` da koristi middleware za beleženje IP adresa
-ipModule(app);
-
-let guests = {}; // Objekat sa gostima i njihovim IP adresama i gradovima
-let assignedNumbers = new Set(); // Skup brojeva koji su već dodeljeni
+let guests = {}; // Objekat sa gostima i njihovim IP adresama
+let assignedNumbers = new Set(); // Skup dodeljenih brojeva
 
 app.use(express.json());
 app.use(express.static(__dirname + '/public'));
@@ -27,40 +25,72 @@ app.use(express.static(__dirname + '/public'));
 function generateUniqueNumber() {
     let number;
     do {
-        number = Math.floor(Math.random() * 8889) + 1111; // Brojevi između 1111 i 9999
-    } while (assignedNumbers.has(number)); // Ako broj već postoji, generišemo novi
-    assignedNumbers.add(number); // Dodajemo broj u skup kako bismo izbegli duplikate
+        number = Math.floor(Math.random() * 8889) + 1111;
+    } while (assignedNumbers.has(number)); 
+    assignedNumbers.add(number);
     return number;
 }
 
 // Middleware za autentifikaciju admina
 function checkAdmin(username) {
-    return username === 'Radio Galaksija'; // Provera da li je korisnik admin
+    return username === 'Radio Galaksija';
 }
+
+// Registracija korisnika
+app.post('/register', async (req, res) => {
+    const { username, password, role } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).send('Korisničko ime i lozinka su obavezni!');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, password: hashedPassword, role });
+
+    try {
+        await newUser.save();
+        res.status(201).send('Korisnik registrovan');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Greška pri registraciji');
+    }
+});
+
+// Prijava korisnika
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    const user = await User.findOne({ username });
+
+    if (!user) {
+        return res.status(400).send('Korisnik ne postoji');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+        return res.status(400).send('Pogrešna lozinka');
+    }
+
+    res.json({ success: true, role: user.role });
+});
 
 // Upravljanje konekcijama
 io.on('connection', async (socket) => {
-    // Dobavljanje IP adrese korisnika pomoću request-ip
-    const ip = requestIp.getClientIp(socket.request); // Koristi request-ip za preuzimanje IP adrese
-
-    // Dobavljanje podataka o lokaciji na osnovu IP adrese
-    let location = await ipModule.getLocation(ip); // Pozivamo `getLocation` iz ipModule
+    const ip = requestIp.getClientIp(socket.request);
+    let location = await ipModule.getLocation(ip);
     const city = location ? location.city : "Nepoznato mesto";
     const country = location ? location.country : "Nepoznata zemlja";
 
-    // Generiši jedinstveni nadimak za gosta
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
-    // Sačuvaj informacije o korisniku
     guests[socket.id] = { nickname, ip, city, country };
     console.log(`${nickname} iz ${city}, ${country} se povezao.`);
 
-    // Emitovanje liste gostiju
     socket.broadcast.emit('newGuest', { nickname, city });
     io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
 
-    // Prijem poruka u četu
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
         const messageToSend = {
@@ -72,20 +102,18 @@ io.on('connection', async (socket) => {
             time: time
         };
 
-        // Proveravamo da li je admin poslao poruku
         if (checkAdmin(guests[socket.id].nickname)) {
-            messageToSend.isAdmin = true;  // Dodajemo oznaku za admina
+            messageToSend.isAdmin = true;
         }
 
-        io.emit('chatMessage', messageToSend); // Šaljemo poruku svim korisnicima
+        io.emit('chatMessage', messageToSend);
     });
 
-    // Kada gost napusti čet
     socket.on('disconnect', () => {
         console.log(`${guests[socket.id].nickname} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10)); // Uklanjamo dodeljeni broj
-        delete guests[socket.id]; // Brišemo gosta iz objekta
-        io.emit('updateGuestList', Object.values(guests).map(g => g.nickname)); // Ažuriramo listu gostiju
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
+        delete guests[socket.id];
+        io.emit('updateGuestList', Object.values(guests).map(g => g.nickname));
     });
 });
 

@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
 const ipModule = require('./ip'); // novi ip modul koji smo ažurirali
+const requestIp = require('request-ip'); // Dodaj ovo za uzimanje IP adresa
 
 const app = express();
 const server = http.createServer(app);
@@ -34,8 +35,8 @@ function generateUniqueNumber() {
 
 // Upravljanje konekcijama
 io.on('connection', async (socket) => {
-    // Dobavljanje IP adrese korisnika
-    const ip = socket.request.connection.remoteAddress;
+    // Dobavljanje IP adrese korisnika pomoću request-ip
+    const ip = requestIp.getClientIp(socket.request); // Koristi request-ip
 
     // Dobavljanje podataka o lokaciji na osnovu IP adrese
     let location = await ipModule.getLocation(ip);

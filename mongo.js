@@ -9,7 +9,7 @@ const connectDB = async () => {
     try {
         await mongoose.connect(uri); // Ove opcije više nisu potrebne
         console.log("Povezan sa bazom podataka!");
-    } catch (error) {
+        catch (error) {
         console.error("Greška prilikom povezivanja sa bazom:", error);
     }
 };

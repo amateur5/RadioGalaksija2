@@ -4,13 +4,14 @@ document.getElementById('registerForm').addEventListener('submit', function(even
 
     const username = document.getElementById('registerUsername').value;
     const password = document.getElementById('registerPassword').value;
+    const role = (username === 'Radio Galaksija') ? 'admin' : 'guest'; // Automatski dodeljujemo ulogu admina ako je korisničko ime 'Radio Galaksija'
 
     fetch('/register', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, role }) // Poslali smo i ulogu na server
     })
     .then(response => {
         if (response.ok) {
@@ -40,11 +41,16 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
         },
         body: JSON.stringify({ username, password })
     })
-    .then(response => {
-        if (response.ok) {
+    .then(response => response.json()) // Pretpostavljamo da server vraća JSON sa informacijama
+    .then(data => {
+        if (data.success) {
             alert('Prijava uspešna');
-            console.log(`Događaj za prijavu emitovan za korisnika: ${username}`);
-            socket.emit('userLoggedIn', username); // Emituj događaj sa korisničkim imenom
+            const role = data.role; // Pretpostavljamo da server vraća ulogu
+            console.log(`Ulogovan kao: ${role}`);
+
+            // Emitovanje događaja sa korisničkim imenom i ulogom
+            socket.emit('userLoggedIn', { username, role });
+
             this.reset(); // Isprazni formu
         } else {
             alert('Nevažeći podaci za prijavu');

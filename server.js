@@ -111,14 +111,17 @@ io.on('connection', (socket) => {
 
         io.emit('chatMessage', messageToSend);
     });
-socket.on('disconnect', () => {
-        console.log(`${users[userId]} se odjavio.`);
-        assignedNumbers.delete(parseInt(users[userId].split('-')[1], 10)); // Ukloni broj iz dodeljenih
-        delete users[userId];
-        io.emit('updateGuestList', Object.values(users));
-   
-    });
 
+    socket.on('disconnect', () => {
+        // Prikazivanje imena gosta koji se odjavljuje
+        console.log(`${guests[socket.id].nickname} se odjavio.`);
+        // Uklanjanje broja gosta iz dodeljenih brojeva
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10)); 
+        // Brisanje gosta iz objekta
+        delete guests[socket.id];
+        // Ažuriranje liste gostiju
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
+    });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -114,9 +114,11 @@ io.on('connection', (socket) => {
 
     // Odlazak gosta sa četa
     socket.on('disconnect', () => {
-        console.log(`${guests[guestId]} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[guestId].split('-')[1], 10));
-        delete guests[guestId];
+        console.log(`${guests[socket.id].nickname} se odjavio.`);
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
+        delete guests[socket.id];
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
+    });
 
 });
 

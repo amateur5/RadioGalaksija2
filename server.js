@@ -112,18 +112,12 @@ io.on('connection', (socket) => {
         io.emit('chatMessage', messageToSend);
     });
 
-    // Kada gost promeni boju
-    socket.on('changeColor', (color) => {
-        guests[socket.id].color = color; // Ažuriraj boju nickname-a
-        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color }))); // Emituj ažuriranu listu gostiju
-    });
-
+    // Odlazak gosta sa četa
     socket.on('disconnect', () => {
-        console.log(`${guests[socket.id].nickname} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
-        delete guests[socket.id];
-        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
-    });
+        console.log(`${guests[guestId]} se odjavio.`);
+        assignedNumbers.delete(parseInt(guests[guestId].split('-')[1], 10));
+        delete guests[guestId];
+
 });
 
 const PORT = process.env.PORT || 3000;

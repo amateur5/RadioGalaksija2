@@ -5,12 +5,15 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
+const ipModule = require('./ip');
+const requestIp = require('request-ip');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
 connectDB(); // Povezivanje sa bazom podataka
+ipModule(app); // Middleware za beleženje IP adresa
 
 let guests = {}; // Objekat sa gostima i njihovim IP adresama
 let assignedNumbers = new Set(); // Skup dodeljenih brojeva
@@ -69,15 +72,36 @@ app.post('/login', async (req, res) => {
         return res.status(400).send('Pogrešna lozinka');
     }
 
-    res.json({ success: true, role: user.role });
+    res.json({ success: true, role: user.role, username: user.username });
 });
 
-// Deo koji počinje kod generisanja nadimka
-const uniqueNumber = generateUniqueNumber();
-const nickname = `Gost-${uniqueNumber}`;
+// Upravljanje konekcijama
+io.on('connection', async (socket) => {
+    const ip = requestIp.getClientIp(socket.request);
+    let location = await ipModule.getLocation(ip);
+    const city = location ? location.city : "Nepoznato mesto";
+    const country = location ? location.country : "Nepoznata zemlja";
 
-// Događaji na konekciji
-io.on('connection', (socket) => {
+    const uniqueNumber = generateUniqueNumber();
+    const nickname = `Gost-${uniqueNumber}`;
+
+    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF", loggedIn: false }; // Dodajemo početnu boju i flag za login
+    console.log(`${nickname} iz ${city}, ${country} se povezao.`);
+
+    socket.broadcast.emit('newGuest', { nickname, city });
+    io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
+
+    socket.on('login', (username) => {
+        // Kada se korisnik uloguje, ažuriramo njegov nickname u listi
+        if (guests[socket.id]) {
+            guests[socket.id].nickname = username;
+            guests[socket.id].loggedIn = true;
+            console.log(`${username} se ulogovao.`);
+        }
+
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
+    });
+
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
         const messageToSend = {
@@ -85,11 +109,11 @@ io.on('connection', (socket) => {
             bold: msgData.bold,
             italic: msgData.italic,
             color: msgData.color,
-            nickname: guests[socket.id]?.nickname,
+            nickname: guests[socket.id].nickname,
             time: time
         };
 
-        if (checkAdmin(guests[socket.id]?.nickname)) {
+        if (checkAdmin(guests[socket.id].nickname)) {
             messageToSend.isAdmin = true;
         }
 
@@ -102,10 +126,9 @@ io.on('connection', (socket) => {
         io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color }))); // Emituj ažuriranu listu gostiju
     });
 
-    // Kada se gost diskonektuje
     socket.on('disconnect', () => {
-        console.log(`${guests[socket.id]?.nickname} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[socket.id]?.nickname.split('-')[1], 10));
+        console.log(`${guests[socket.id].nickname} se odjavio.`);
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
         delete guests[socket.id];
         io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
     });

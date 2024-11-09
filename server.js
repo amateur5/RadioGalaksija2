@@ -6,77 +6,26 @@ const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banModule = require("./banModule");
 const ipModule = require('./ip');
+const requestIp = require('request-ip'); // Dodato za prepoznavanje IP adrese klijenta
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Poveži se sa bazom podataka
+// Povezivanje sa bazom podataka
 connectDB();
 
-let guests = {}; // Objekat sa gostima i njihovim ID-ovima
-let assignedNumbers = new Set(); // Skup brojeva koji su već dodeljeni
-let connectedIps = []; // Ovdje čuvamo sve povezane IP adrese
+// Middleware za beleženje IP adresa
+ipModule(app);
+
+let guests = {}; // Objekat sa gostima i njihovim detaljima (nickname, ip, city, country, color)
+let assignedNumbers = new Set(); // Skup dodeljenih brojeva
+let connectedIps = []; // Spisak povezanih IP adresa
 
 app.use(express.json());
 app.use(express.static(__dirname + '/public'));
 
-// Funkcija za registraciju korisnika
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).send('Username and password are required.');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, password: hashedPassword });
-
-    try {
-        await user.save();
-        res.status(201).send('User registered');
-    } catch (err) {
-        console.error('Greška prilikom registracije:', err);
-        res.status(400).send('Error registering user');
-    }
-});
-
-// Funkcija za logovanje korisnika
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).send('Username and password are required.');
-    }
-
-    try {
-        const user = await User.findOne({ username });
-        if (user && await bcrypt.compare(password, user.password)) {
-            const role = user.role; // Preuzmi rolu korisnika iz baze
-            const socketId = req.headers['x-socket-id']; // Uzmemo socket ID iz header-a zahteva
-            
-            // Emitovanje samo prijavljenom korisniku na osnovu socket ID-a
-            const socket = io.sockets.sockets.get(socketId);
-            if (socket) {
-                socket.emit('userLoggedIn', { username, role });
-            }
-            
-            // Odgovor klijentu o statusu prijave
-            res.send(role === 'admin' ? 'Logged in as admin' : 'Logged in as guest');
-        } else {
-            res.status(400).send('Invalid credentials');
-        }
-    } catch (err) {
-        console.error('Greška prilikom logovanja:', err);
-        res.status(500).send('Server error');
-    }
-});
-
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/index.html');
-});
-
-// Generiši broj u opsegu 1111-9999 koji još nije dodeljen
+// Generisanje jedinstvenog broja za gosta
 function generateUniqueNumber() {
     let number;
     do {
@@ -86,46 +35,73 @@ function generateUniqueNumber() {
     return number;
 }
 
-// Endpoint za slanje liste IP adresa
-app.get('/ip-list', (req, res) => {
-    res.json(connectedIps);
+// Provera da li je korisnik admin
+function checkAdmin(username) {
+    return username === 'Radio Galaksija';
+}
+
+// Funkcija za registraciju korisnika
+app.post('/register', async (req, res) => {
+    const { username, password, role } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).send('Korisničko ime i lozinka su obavezni!');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({ username, password: hashedPassword, role });
+
+    try {
+        await newUser.save();
+        res.status(201).send('Korisnik registrovan');
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Greška pri registraciji');
+    }
+});
+
+// Prijava korisnika (preuzeto iz manje verzije zbog jednostavnosti)
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    
+    const user = await User.findOne({ username });
+    if (!user) {
+        return res.status(400).send('Korisnik ne postoji');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        return res.status(400).send('Pogrešna lozinka');
+    }
+
+    // Vraćamo role korisnika kako bi se znalo da li je admin ili gost
+    res.json({ success: true, role: user.role });
+});
+
+// Prikazivanje stranice
+app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/public/index.html');
 });
 
 // Upravljanje događajima prilikom konekcije gostiju
-io.on('connection', (socket) => {
-    console.log('Novi gost je povezan sa socket ID:', socket.id);
-
-    const guestId = socket.id;
-    const ip = socket.request.connection.remoteAddress;
-    console.log(`Gost sa IP adresom ${ip} se povezao.`);
-
-    // Dodaj IP adresu u spisak povezanih
-    if (!connectedIps.includes(ip)) {
-        connectedIps.push(ip);
-    }
+io.on('connection', async (socket) => {
+    const ip = requestIp.getClientIp(socket.request);
+    let location = await ipModule.getLocation(ip);
+    const city = location ? location.city : "Nepoznato mesto";
+    const country = location ? location.country : "Nepoznata zemlja";
 
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
 
-    guests[guestId] = nickname;
-    console.log(`${nickname} se povezao.`);
-    
-    // Provera da li je gost banovan
-    if (banModule.isGuestBanned(guestId)) {
-        socket.disconnect();
-        return;
-    }
+    // Čuvamo sve potrebne informacije o gostima
+    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF" };
+    console.log(`${nickname} iz ${city}, ${country} se povezao.`);
 
-    socket.broadcast.emit('newGuest', nickname);
-    io.emit('updateGuestList', Object.values(guests));
+    // Emitovanje novog gosta svim korisnicima
+    socket.broadcast.emit('newGuest', { nickname, city });
+    io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
 
-    // Prijavljivanje gosta
-    socket.on('userLoggedIn', (username) => {
-        guests[guestId] = username;
-        io.emit('updateGuestList', Object.values(guests));
-    });
-
-    // Prijem poruka u četu
+    // Kada korisnik pošalje poruku u četu
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
         const messageToSend = {
@@ -133,33 +109,41 @@ io.on('connection', (socket) => {
             bold: msgData.bold,
             italic: msgData.italic,
             color: msgData.color,
-            nickname: guests[guestId],
+            nickname: guests[socket.id].nickname,
             time: time
         };
+
+        // Proveravamo da li je korisnik admin za posebnu oznaku
+        if (checkAdmin(guests[socket.id].nickname)) {
+            messageToSend.isAdmin = true;
+        }
+
         io.emit('chatMessage', messageToSend);
+    });
+
+    // Kada gost promeni boju
+    socket.on('changeColor', (color) => {
+        guests[socket.id].color = color; // Ažuriramo boju
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
     });
 
     // Banovanje gosta samo od strane admina "Radio Galaksija"
     socket.on("toggleBanUser", (targetGuestId) => {
-        if (guests[guestId] === "Radio Galaksija") {
+        if (guests[socket.id].nickname === "Radio Galaksija") {
             banModule.isGuestBanned(targetGuestId) ? 
                 banModule.unbanGuest(targetGuestId) : 
                 banModule.banGuest(targetGuestId);
             io.sockets.sockets.get(targetGuestId)?.disconnect();
-            io.emit('updateGuestList', Object.values(guests));
+            io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
         }
     });
 
-    // Odlazak gosta sa četa
+    // Kada se gost diskonektuje
     socket.on('disconnect', () => {
-        console.log(`${guests[guestId]} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[guestId].split('-')[1], 10));
-        delete guests[guestId];
-
-        // Uklanjanje IP adrese gosta iz spiska kada se odjavi
-        connectedIps = connectedIps.filter((userIp) => userIp !== ip);
-
-        io.emit('updateGuestList', Object.values(guests));
+        console.log(`${guests[socket.id].nickname} se odjavio.`);
+        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
+        delete guests[socket.id];
+        io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
     });
 });
 

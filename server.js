@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -72,9 +71,13 @@ app.post('/login', async (req, res) => {
 
     res.json({ success: true, role: user.role });
 });
-    const uniqueNumber = generateUniqueNumber();
-    const nickname = `Gost-${uniqueNumber}`;
 
+// Deo koji počinje kod generisanja nadimka
+const uniqueNumber = generateUniqueNumber();
+const nickname = `Gost-${uniqueNumber}`;
+
+// Događaji na konekciji
+io.on('connection', (socket) => {
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
         const messageToSend = {
@@ -82,11 +85,11 @@ app.post('/login', async (req, res) => {
             bold: msgData.bold,
             italic: msgData.italic,
             color: msgData.color,
-            nickname: guests[socket.id].nickname,
+            nickname: guests[socket.id]?.nickname,
             time: time
         };
 
-        if (checkAdmin(guests[socket.id].nickname)) {
+        if (checkAdmin(guests[socket.id]?.nickname)) {
             messageToSend.isAdmin = true;
         }
 
@@ -99,9 +102,10 @@ app.post('/login', async (req, res) => {
         io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color }))); // Emituj ažuriranu listu gostiju
     });
 
+    // Kada se gost diskonektuje
     socket.on('disconnect', () => {
-        console.log(`${guests[socket.id].nickname} se odjavio.`);
-        assignedNumbers.delete(parseInt(guests[socket.id].nickname.split('-')[1], 10));
+        console.log(`${guests[socket.id]?.nickname} se odjavio.`);
+        assignedNumbers.delete(parseInt(guests[socket.id]?.nickname.split('-')[1], 10));
         delete guests[socket.id];
         io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
     });

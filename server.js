@@ -6,15 +6,12 @@ const { connectDB, User } = require('./mongo');
 const bcrypt = require('bcrypt');
 require('dotenv').config();
 const banmodule = require("./banmodule");
-const ipModule = require('./ip');
-const requestIp = require('request-ip');
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
 connectDB(); // Povezivanje sa bazom podataka
-ipModule(app); // Middleware za beleženje IP adresa
 
 let guests = {}; // Objekat sa gostima i njihovim IP adresama
 let assignedNumbers = new Set(); // Skup dodeljenih brojeva
@@ -75,22 +72,8 @@ app.post('/login', async (req, res) => {
 
     res.json({ success: true, role: user.role });
 });
-
-// Upravljanje konekcijama
-io.on('connection', async (socket) => {
-    const ip = requestIp.getClientIp(socket.request);
-    let location = await ipModule.getLocation(ip);
-    const city = location ? location.city : "Nepoznato mesto";
-    const country = location ? location.country : "Nepoznata zemlja";
-
     const uniqueNumber = generateUniqueNumber();
     const nickname = `Gost-${uniqueNumber}`;
-
-    guests[socket.id] = { nickname, ip, city, country, color: "#FFFFFF" }; // Dodajemo početnu boju
-    console.log(`${nickname} iz ${city}, ${country} se povezao.`);
-
-    socket.broadcast.emit('newGuest', { nickname, city });
-    io.emit('updateGuestList', Object.values(guests).map(g => ({ nickname: g.nickname, color: g.color })));
 
     socket.on('chatMessage', (msgData) => {
         const time = new Date().toLocaleTimeString();
